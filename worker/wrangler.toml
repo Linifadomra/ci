@@ -1,0 +1,32 @@
+name = "linif-builds"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+routes = [
+  { pattern = "builds.linifadomra.org/_ci/*", zone_name = "linifadomra.org" },
+  { pattern = "builds.linifadomra.org/_auth/*", zone_name = "linifadomra.org" },
+]
+
+[observability]
+enabled = true
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "linif-builds"
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "dd33fd0f561748db9edd70ea4285fac4"
+
+[vars]
+OWNER = "Linifadomra"
+OWNER_ID = "270482449"
+WORKFLOW_REF = "refs/heads/main"
+AUDIENCE = "builds.linifadomra.org"
+WORKFLOW_PREFIX = "Linifadomra/ci/.github/workflows/"
+ACCOUNT_ID = "52305f45b83875b07894fed89e2aae93"
+BUCKET_NAME = "linif-builds"
+CAP_USD = "3"
+
+[triggers]
+crons = ["0 * * * *", "30 4 * * *"]

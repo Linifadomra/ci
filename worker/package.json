@@ -1,0 +1,20 @@
+{
+  "name": "linif-builds",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "deploy": "wrangler deploy",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "aws4fetch": "1.0.20",
+    "jose": "6.2.12"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261010.1",
+    "prettier": "3.9.10",
+    "typescript": "7.0.2",
+    "wrangler": "4.149.0"
+  }
+}

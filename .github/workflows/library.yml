@@ -1,0 +1,29 @@
+name: library
+
+on:
+  workflow_call:
+    inputs:
+      jobs:
+        type: string
+        required: true
+
+jobs:
+  run:
+    name: ${{ matrix.name }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ matrix.runs-on || fromJSON('["self-hosted","sprintrunner"]') }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.jobs) }}
+    steps:
+      - uses: Linifadomra/ci/actions/cache@main
+        with:
+          target: ${{ matrix.target || matrix.name }}
+      - uses: Linifadomra/ci/actions/checkout@main
+      - name: ${{ matrix.name }}
+        uses: Linifadomra/ci/actions/run@main
+        with:
+          command: ${{ matrix.command }}
+          env: ${{ toJSON(matrix.env) }}

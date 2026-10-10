@@ -1,0 +1,24 @@
+name: publish
+description: Write the build index, check run and PR comment
+inputs:
+  name:
+    required: true
+  slug:
+    required: true
+  sha:
+    required: true
+  conclusion:
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        SLUG: ${{ inputs.slug }}
+        SHA: ${{ inputs.sha }}
+        CONCLUSION: ${{ inputs.conclusion }}
+        GITHUB_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: bash "$GITHUB_ACTION_PATH/../../scripts/publish.sh" "$NAME" "$SHA"

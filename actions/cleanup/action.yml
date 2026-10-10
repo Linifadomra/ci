@@ -1,0 +1,7 @@
+name: cleanup
+description: Delete a closed PR's builds
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: echo '{}' | bash "$GITHUB_ACTION_PATH/../../scripts/ci_call.sh" delete-scope

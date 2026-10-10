@@ -1,0 +1,83 @@
+name: port
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        type: string
+        required: true
+      slug:
+        type: string
+        required: true
+      targets:
+        type: string
+        required: true
+      altstore:
+        type: string
+        default: ""
+      altstore-base:
+        type: string
+        default: ""
+      ios-target:
+        type: string
+        default: ios-arm64
+
+env:
+  SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  build:
+    if: github.event.action != 'closed' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ${{ matrix.runs-on || fromJSON('["self-hosted","sprintrunner"]') }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.targets) }}
+    steps:
+      - uses: Linifadomra/ci/actions/cache@main
+        with:
+          target: ${{ matrix.target }}
+      - uses: Linifadomra/ci/actions/checkout@main
+      - name: Build ${{ matrix.target }}
+        uses: Linifadomra/ci/actions/run@main
+        with:
+          service: ${{ matrix.service }}
+          command: ${{ matrix.command }}
+          env: ${{ toJSON(matrix.env) }}
+      - name: Upload ${{ matrix.target }}
+        uses: Linifadomra/ci/actions/upload@main
+        with:
+          dir: ${{ matrix.out || format('docker/out/{0}', matrix.target) }}
+          sha: ${{ env.SHA }}
+          under: ${{ matrix.target }}
+          zip: ${{ inputs.name }}-${{ matrix.target }}.zip
+      - name: AltStore
+        if: >-
+          inputs.altstore != '' && matrix.target == inputs.ios-target
+          && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: Linifadomra/ci/actions/altstore@main
+        with:
+          name: ${{ inputs.name }}
+          channel: ${{ inputs.altstore }}
+          base: ${{ inputs.altstore-base || format('https://repo.linifadomra.org/{0}', inputs.altstore) }}
+          ipa: ${{ format('{0}/{1}-{2}-unsigned.ipa', matrix.out || format('docker/out/{0}', matrix.target), inputs.name, matrix.target) }}
+          sha: ${{ env.SHA }}
+
+  publish:
+    needs: build
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    runs-on: [self-hosted, sprintrunner]
+    steps:
+      - uses: Linifadomra/ci/actions/publish@main
+        with:
+          name: ${{ inputs.name }}
+          slug: ${{ inputs.slug }}
+          sha: ${{ env.SHA }}
+          conclusion: ${{ needs.build.result == 'success' && 'success' || 'failure' }}
+
+  cleanup:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, sprintrunner]
+    steps:
+      - uses: Linifadomra/ci/actions/cleanup@main

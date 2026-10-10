@@ -1,0 +1,24 @@
+name: altstore
+description: Publish the iOS IPA to the project's AltStore channel
+inputs:
+  name:
+    required: true
+  channel:
+    required: true
+  base:
+    required: true
+  ipa:
+    required: true
+  sha:
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        CHANNEL: ${{ inputs.channel }}
+        BASE: ${{ inputs.base }}
+        IPA: ${{ inputs.ipa }}
+        SHA: ${{ inputs.sha }}
+      run: bash "$GITHUB_ACTION_PATH/../../scripts/altstore.sh" "$NAME" "$CHANNEL" "$BASE" "$IPA" "$GITHUB_REF_NAME" "$SHA"

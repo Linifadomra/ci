@@ -1,0 +1,17 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: Linifadomra/ci/.github/workflows/library.yml@main
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      jobs: >-
+        [{"name": "test", "command": "docker compose -f docker/docker-compose.ci.yml run --rm test"}]

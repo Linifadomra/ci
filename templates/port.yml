@@ -1,0 +1,27 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: Linifadomra/ci/.github/workflows/port.yml@main
+    permissions:
+      contents: read
+      id-token: write
+      checks: write
+      pull-requests: write
+    with:
+      name: Project
+      slug: project
+      altstore: ""
+      targets: >-
+        [{"target": "linux-x64", "service": "linux-x64"}]

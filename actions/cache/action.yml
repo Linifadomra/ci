@@ -1,0 +1,12 @@
+name: cache
+description: Select this target's sprintrunner build cache when the lane has one
+inputs:
+  target:
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        TARGET: ${{ inputs.target }}
+      run: if command -v sprint-state >/dev/null; then sprint-state select "$TARGET"; fi

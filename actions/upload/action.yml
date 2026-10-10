@@ -1,0 +1,23 @@
+name: upload
+description: Zip a target's output and upload it to linif-builds
+inputs:
+  dir:
+    required: true
+  sha:
+    required: true
+  under:
+    required: true
+  zip:
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        DIR: ${{ inputs.dir }}
+        SHA: ${{ inputs.sha }}
+        UNDER: ${{ inputs.under }}
+        ZIP: ${{ inputs.zip }}
+      run: |
+        stage="$(bash "$GITHUB_ACTION_PATH/../../scripts/stage.sh" "$DIR" "$ZIP")"
+        bash "$GITHUB_ACTION_PATH/../../scripts/upload.sh" builds "$SHA" "$stage" "$UNDER"

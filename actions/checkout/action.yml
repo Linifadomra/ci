@@ -1,0 +1,15 @@
+name: checkout
+description: Check out the caller and fill its submodules without a token
+runs:
+  using: composite
+  steps:
+    - name: Reclaim workspace ownership
+      shell: bash
+      run: if [ "$(id -u)" != 0 ]; then docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine chown -R "$(id -u):$(id -g)" /ws; fi
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - name: Submodules
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/../../scripts/deps.sh"
