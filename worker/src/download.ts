@@ -42,6 +42,7 @@ async function object(
   );
   headers.set("X-Content-Type-Options", "nosniff");
   if (gated) headers.set("Content-Security-Policy", SANDBOX);
+  else headers.set("Access-Control-Allow-Origin", "*");
   if (setCookie) headers.append("Set-Cookie", setCookie);
   return new Response(req.method === "HEAD" ? null : obj.body, { headers });
 }

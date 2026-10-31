@@ -3,8 +3,8 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 workers_dev = false
 routes = [
-  { pattern = "builds.linifadomra.org/_ci/*", zone_name = "linifadomra.org" },
-  { pattern = "builds.linifadomra.org/_auth/*", zone_name = "linifadomra.org" },
+  { pattern = "builds.linifadomra.org/*", zone_name = "linifadomra.org" },
+  { pattern = "repo.linifadomra.org/*", zone_name = "linifadomra.org" },
 ]
 
 [observability]

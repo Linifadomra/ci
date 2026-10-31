@@ -1,6 +1,8 @@
 import { HttpError } from "./http";
 import type { Env, Fetch } from "./types";
 
+const ROLES = new Set(["triage", "write", "maintain", "admin"]);
+
 function api(env: Env, path: string, f: Fetch): Promise<Response> {
   return f(`https://api.github.com${path}`, {
     headers: {
@@ -26,8 +28,8 @@ export async function permission(
   if (!res.ok) {
     throw new HttpError(502, `github permission lookup failed: ${res.status}`);
   }
-  const { permission } = await res.json<{ permission: string }>();
-  return permission !== "none";
+  const { role_name } = await res.json<{ role_name: string }>();
+  return ROLES.has(role_name);
 }
 
 export async function defaultBranch(
