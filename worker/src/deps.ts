@@ -89,23 +89,21 @@ async function pin(
   sha: string,
   path: string,
   f: Fetch,
-): Promise<string> {
+): Promise<string | null> {
   const res = await gh(
     env,
     `${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${sha}`,
     f,
   );
+  if (res.status === 404) return null;
   if (!res.ok) {
     throw new HttpError(
       502,
       `github lookup of ${repo}/${path} failed: ${res.status}`,
     );
   }
-  const entry = await res.json<{ type: string; sha: string }>();
-  if (entry.type !== "submodule") {
-    throw new HttpError(502, `${repo}/${path} is not a submodule at ${sha}`);
-  }
-  return entry.sha;
+  const entry = await res.json<{ type?: string; sha: string }>();
+  return entry.type === "submodule" ? entry.sha : null;
 }
 
 export async function submodules(
@@ -143,5 +141,5 @@ export async function submodules(
       sha: await pin(env, repo, sha, m.path, f),
     })),
   );
-  return Response.json({ submodules: list });
+  return Response.json({ submodules: list.filter((m) => m.sha) });
 }

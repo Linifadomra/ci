@@ -3,12 +3,14 @@ set -euo pipefail
 here=$(dirname "$0")
 
 pins_git() {
-  local key path name
+  local key path name sha
   [ -f "$1/.gitmodules" ] || return 0
   git -C "$1" config -f .gitmodules --get-regexp '^submodule\..*\.path$' | while read -r key path; do
+    sha=$(git -C "$1" ls-tree HEAD -- "$path" | awk '$2 == "commit" { print $3 }')
+    [ -n "$sha" ] || continue
     name="${key#submodule.}"
     name="${name%.path}"
-    printf '%s\t%s\t%s\n' "$path" "$(git -C "$1" config -f .gitmodules "submodule.$name.url")" "$(git -C "$1" rev-parse "HEAD:$path")"
+    printf '%s\t%s\t%s\n' "$path" "$(git -C "$1" config -f .gitmodules "submodule.$name.url")" "$sha"
   done
 }
 
