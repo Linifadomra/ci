@@ -2,7 +2,7 @@ import type { JWTVerifyGetKey } from "jose";
 import { listAll, removeKeys } from "./bucket";
 import { assertOpen } from "./cap";
 import { archive, submodules } from "./deps";
-import { defaultBranch } from "./github";
+import { defaultBranch, pullRequest } from "./github";
 import { errorResponse, HttpError } from "./http";
 import { scopeOf, verifyCi, type CiClaims } from "./oidc";
 import { safePath, signer } from "./presign";
@@ -23,6 +23,7 @@ interface CiBody {
   kind?: "builds" | "altstore";
   sha?: string;
   channel?: string;
+  pr?: number;
   url?: string;
   files?: { path: string; size: number }[];
 }
@@ -103,12 +104,25 @@ async function upload(
   return Response.json({ prefix, urls });
 }
 
-async function deleteScope(env: Env, project: Project, claims: CiClaims) {
-  const scope = scopeOf(claims.ref);
-  if (!scope.startsWith("pr-")) {
-    throw new HttpError(403, "only PR scopes can be deleted");
+async function deleteScope(
+  env: Env,
+  project: Project,
+  claims: CiClaims,
+  body: CiBody,
+  f?: Fetch,
+) {
+  const number = body.pr ?? 0;
+  if (!Number.isSafeInteger(number) || number < 1) {
+    throw new HttpError(400, "pr must be a pull request number");
   }
-  const keys = (await listAll(env, `builds/${project.slug}/${scope}/`)).map(
+  const pr =
+    claims.event_name === "pull_request"
+      ? await pullRequest(env, project.repo, number, f)
+      : null;
+  if (pr?.state !== "closed" || pr.head.ref !== claims.head_ref) {
+    throw new HttpError(403, `PR ${number} is not this run's closed PR`);
+  }
+  const keys = (await listAll(env, `builds/${project.slug}/pr-${number}/`)).map(
     (o) => o.key,
   );
   return Response.json({ deleted: await removeKeys(env, keys) });
@@ -132,7 +146,7 @@ async function route(req: Request, env: Env, deps: CiDeps): Promise<Response> {
       return Response.json({ prefix, keys });
     }
     case "/_ci/delete-scope":
-      return deleteScope(env, project, claims);
+      return deleteScope(env, project, claims, body, deps.fetcher);
     case "/_ci/archive":
       return archive(env, project, body, deps.fetcher);
     case "/_ci/deps":

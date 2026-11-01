@@ -43,3 +43,20 @@ export async function defaultBranch(
   }
   return (await res.json<{ default_branch: string }>()).default_branch;
 }
+
+export async function pullRequest(
+  env: Env,
+  repo: string,
+  number: number,
+  f: Fetch = fetch,
+): Promise<{ state: string; head: { ref: string } } | null> {
+  const res = await api(env, `/repos/${env.OWNER}/${repo}/pulls/${number}`, f);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new HttpError(
+      502,
+      `github pull request lookup failed: ${res.status}`,
+    );
+  }
+  return res.json();
+}

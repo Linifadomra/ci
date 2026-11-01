@@ -4,4 +4,6 @@ runs:
   using: composite
   steps:
     - shell: bash
-      run: echo '{}' | bash "$GITHUB_ACTION_PATH/../../scripts/ci_call.sh" delete-scope
+      env:
+        PR: ${{ github.event.pull_request.number }}
+      run: jq -n --argjson pr "$PR" '{$pr}' | bash "$GITHUB_ACTION_PATH/../../scripts/ci_call.sh" delete-scope

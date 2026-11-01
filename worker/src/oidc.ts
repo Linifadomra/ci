@@ -12,6 +12,7 @@ export interface CiClaims {
   repository_owner_id: string;
   ref: string;
   event_name: string;
+  head_ref: string;
   job_workflow_ref: string;
 }
 
