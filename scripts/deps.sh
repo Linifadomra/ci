@@ -32,9 +32,10 @@ fill() {
       echo "::error::submodule $path is pinned to '$sha', not a commit" >&2
       exit 1
     }
+    rm -rf "${dir:?}/$path"
     mkdir -p "$dir/$path"
     if [[ "$(tr '[:upper:]' '[:lower:]' <<<"$url")" == https://github.com/linifadomra/* ]]; then
-      request archive "$url" "$sha" | tar -xzf - --strip-components=1 -C "$dir/$path"
+      request archive "$url" "$sha" | tar -xzmf - --strip-components=1 -C "$dir/$path"
       nested="$(request deps "$url" "$sha" | jq -r '.submodules[] | [.path, .url, .sha] | @tsv')"
     else
       git -C "$dir/$path" init -q
