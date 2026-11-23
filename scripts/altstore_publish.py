@@ -19,6 +19,10 @@ def plist_name(ipa):
     )
 
 
+def version_key(version):
+    return tuple(int(p) if p.isdigit() else -1 for p in version.split("."))
+
+
 def rewrite_version(src, dest, version):
     with zipfile.ZipFile(src) as zin:
         target = plist_name(zin)
@@ -78,11 +82,12 @@ def main():
     with open(manifest) as f:
         source = json.load(f)
     app = source["apps"][0]
-    versions = [entry] + [v for v in app["versions"] if v["version"] != version]
+    others = [v for v in app["versions"] if v["version"] != version]
+    own = [entry] + [v for v in others if v["downloadURL"].startswith(prefix)]
+    own.sort(key=lambda v: version_key(v["version"]), reverse=True)
     if channel["keep"]:
-        dropped = [v for v in versions if v["downloadURL"].startswith(prefix)][channel["keep"] :]
-        versions = [v for v in versions if v not in dropped]
-    app["versions"] = versions
+        own = own[: channel["keep"]]
+    app["versions"] = own + [v for v in others if not v["downloadURL"].startswith(prefix)]
 
     with open(manifest, "w") as f:
         json.dump(source, f, indent="\t", ensure_ascii=False)
