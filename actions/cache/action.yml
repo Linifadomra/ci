@@ -9,4 +9,9 @@ runs:
     - shell: bash
       env:
         TARGET: ${{ inputs.target }}
-      run: if command -v sprint-state >/dev/null; then sprint-state select "$TARGET"; fi
+      run: |
+        command -v sprint-state >/dev/null || exit 0
+        if grep -q sprint.state_verified=1 /proc/cmdline && [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+          sprint-state attach || echo "no repo cache for this job, building cold"
+        fi
+        sprint-state select "$TARGET"
