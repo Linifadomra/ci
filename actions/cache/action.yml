@@ -11,7 +11,7 @@ runs:
         TARGET: ${{ inputs.target }}
       run: |
         command -v sprint-state >/dev/null || exit 0
-        if grep -q sprint.state_verified=1 /proc/cmdline && [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+        if grep -q sprint.state_verified=1 /proc/cmdline; then
           sprint-state attach || echo "no repo cache for this job, building cold"
         fi
         sprint-state select "$TARGET"
