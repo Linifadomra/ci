@@ -74,21 +74,44 @@ cc_hash() {
   done | sha256sum | cut -c1-64
 }
 
+cc_list() {
+  local dir=$1 count
+  shift
+  git -C "$dir" ls-files --recurse-submodules -- "$@" | LC_ALL=C sort >"$cc_listing"
+  count="$(wc -l <"$cc_listing")"
+  if [ "$count" -gt "$cc_max_files" ]; then
+    cc_log "$dir lists $count files, over the $cc_max_files cap; not caching"
+    return 1
+  fi
+}
+
 cpm_key() {
   local root=$1 files=() f
+  cc_listing="$(mktemp)"
+  if ! cc_list "$root" 'CMakeLists.txt' '*/CMakeLists.txt' '*.cmake'; then
+    rm -f "$cc_listing"
+    return 1
+  fi
   while IFS= read -r f; do
     grep -qE 'CPMAddPackage|FetchContent' "$root/$f" 2>/dev/null && files+=("$f")
-  done < <(git -C "$root" ls-files --recurse-submodules -- 'CMakeLists.txt' '*/CMakeLists.txt' '*.cmake' |
-    head -n "$cc_max_files" | LC_ALL=C sort)
+  done <"$cc_listing"
+  rm -f "$cc_listing"
   [ ${#files[@]} -gt 0 ] || return 1
   cc_hash "$root" "${files[@]}"
 }
 
 image_key() {
   local context=$1 dockerfile=$2 args=${3:-} files=() f
-  while IFS= read -r f; do files+=("$f"); done < <(git -C "$context" ls-files --recurse-submodules -- . | head -n "$cc_max_files" | LC_ALL=C sort)
+  cc_listing="$(mktemp)"
+  if ! cc_list "$context" .; then
+    rm -f "$cc_listing"
+    return 1
+  fi
+  while IFS= read -r f; do files+=("$f"); done <"$cc_listing"
+  rm -f "$cc_listing"
   {
     printf 'context\0%s\0' "$(cc_hash "$context" "${files[@]}")"
+    [ -f "$context/.dockerignore" ] && printf 'dockerignore\0%s\0' "$(sha256sum "$context/.dockerignore" | cut -c1-64)"
     printf 'dockerfile\0%s\0' "$(sha256sum "$dockerfile" | cut -c1-64)"
     printf 'from\0%s\0' "$(grep -iE '^[[:space:]]*FROM[[:space:]]' "$dockerfile" | tr -s '[:space:]' ' ')"
     printf 'args\0%s\0' "$args"
@@ -113,13 +136,7 @@ cc_override() {
     --argjson build "$(jq --arg s "$svc" '.services[$s] | has("build")' "$cfg")" '
     {services: {($s): (
       (if $net == "none" then {} else {
-        volumes: ["/usr/local/bin/sccache:/opt/sprint/sccache:ro"],
-        environment: {
-          SCCACHE_WEBDAV_ENDPOINT: "http://\($gw):\($port)/cc/",
-          SCCACHE_DIR: "/tmp/sccache",
-          CMAKE_C_COMPILER_LAUNCHER: "/opt/sprint/sccache",
-          CMAKE_CXX_COMPILER_LAUNCHER: "/opt/sprint/sccache"
-        }
+        environment: {CCACHE_SECONDARY_STORAGE: "http://\($gw):\($port)/cc|layout=subdirs"}
       } end)
       + (if $build then {build: {cache_from: [$image], args: {BUILDKIT_INLINE_CACHE: "1"}}} else {} end)
     )}}'
@@ -187,13 +204,27 @@ cc_restore_image() {
     return 1
   fi
   tmp="$(mktemp)"
-  if cc_fetch "$name" "$tmp" && zstd -dcq "$tmp" | docker load -q >/dev/null; then
+  if cc_fetch "$name" "$tmp" && cc_load "$tmp" "$image"; then
     cc_log "$name hit $((SECONDS - t0))s"
   else
     cc_log "$name restore failed"
   fi
   rm -f "$tmp"
   return 0
+}
+
+cc_load() {
+  local archive=$1 want=$2 out loaded
+  [[ $want == *:* ]] || want="$want:latest"
+  out="$(zstd -dcq "$archive" | docker load 2>&1)" || true
+  if [ "$out" = "Loaded image: $want" ] && docker image inspect "$want" >/dev/null 2>&1; then
+    return 0
+  fi
+  while IFS= read -r loaded; do
+    [ -n "$loaded" ] && docker rmi -f "$loaded" >/dev/null 2>&1
+  done < <(sed -n 's/^Loaded image\( ID\)\{0,1\}: //p' <<<"$out")
+  cc_log "image archive held something other than $want; discarded"
+  return 1
 }
 
 cc_save_image() {
