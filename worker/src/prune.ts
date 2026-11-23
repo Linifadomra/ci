@@ -1,20 +1,33 @@
 import { listAll, removeKeys, type Obj } from "./bucket";
-import { defaultBranch } from "./github";
-import { scopeName } from "./oidc";
+import { pullRequest } from "./github";
 import { projects } from "./projects";
 import type { Env, Fetch } from "./types";
 
 const KEEP = 15;
-const STALE_MS = 14 * 86400_000;
+const CLOSED_KEEP_MS = 90 * 86400_000;
 
 interface Manifest {
   apps: { versions: { downloadURL: string }[] }[];
 }
 
+export function prNumbers(objs: Obj[]): number[] {
+  const numbers = new Set<number>();
+  for (const o of objs) {
+    const n = prNumber(o.key.split("/")[2] ?? "");
+    if (n !== null) numbers.add(n);
+  }
+  return [...numbers];
+}
+
+function prNumber(scope: string): number | null {
+  const m = /^pr-(\d+)$/.exec(scope);
+  return m ? Number(m[1]) : null;
+}
+
 export function pruneDirs(
   objs: Obj[],
-  defaultScope: string,
   now: number,
+  closedAt: Map<number, number | null>,
 ): string[] {
   const newest = new Map<string, { scope: string; time: number }>();
   for (const o of objs) {
@@ -33,13 +46,15 @@ export function pruneDirs(
   }
   const doomed: string[] = [];
   for (const [scope, dirs] of byScope) {
-    if (scope === defaultScope) {
+    const pr = prNumber(scope);
+    if (pr === null) {
       const newest = dirs.sort((a, b) => b[1] - a[1]);
       doomed.push(...newest.slice(KEEP).map(([d]) => d));
-    } else {
-      doomed.push(
-        ...dirs.filter(([, t]) => t < now - STALE_MS).map(([d]) => d),
-      );
+      continue;
+    }
+    const closed = closedAt.get(pr);
+    if (closed != null && closed < now - CLOSED_KEEP_MS) {
+      doomed.push(...dirs.map(([d]) => d));
     }
   }
   return doomed;
@@ -64,6 +79,25 @@ export function orphanIpas(
     .map((o) => o.key);
 }
 
+async function closedTimes(
+  env: Env,
+  repo: string,
+  objs: Obj[],
+  f: Fetch,
+): Promise<Map<number, number | null>> {
+  const times = new Map<number, number | null>();
+  for (const n of prNumbers(objs)) {
+    try {
+      const pr = await pullRequest(env, repo, n, f);
+      if (pr === null) continue;
+      times.set(n, pr.closed_at === null ? null : Date.parse(pr.closed_at));
+    } catch (e) {
+      console.log(`prune: kept pr-${n} of ${repo}: ${String(e)}`);
+    }
+  }
+  return times;
+}
+
 export async function runPrune(
   env: Env,
   now: number,
@@ -72,11 +106,7 @@ export async function runPrune(
   let removed = 0;
   for (const p of projects(env)) {
     const objs = await listAll(env, `builds/${p.slug}/`);
-    const dirs = pruneDirs(
-      objs,
-      scopeName(await defaultBranch(env, p.repo, f)),
-      now,
-    );
+    const dirs = pruneDirs(objs, now, await closedTimes(env, p.repo, objs, f));
     const stale = objs
       .filter((o) => dirs.some((d) => o.key.startsWith(d)))
       .map((o) => o.key);

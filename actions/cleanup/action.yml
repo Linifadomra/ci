@@ -1,5 +1,5 @@
 name: cleanup
-description: Delete a closed PR's builds
+description: Delete the builds of a PR closed without merging
 runs:
   using: composite
   steps:

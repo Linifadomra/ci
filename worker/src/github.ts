@@ -49,7 +49,11 @@ export async function pullRequest(
   repo: string,
   number: number,
   f: Fetch = fetch,
-): Promise<{ state: string; head: { ref: string } } | null> {
+): Promise<{
+  state: string;
+  closed_at: string | null;
+  head: { ref: string };
+} | null> {
   const res = await api(env, `/repos/${env.OWNER}/${repo}/pulls/${number}`, f);
   if (res.status === 404) return null;
   if (!res.ok) {

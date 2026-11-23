@@ -78,7 +78,7 @@ jobs:
           conclusion: ${{ needs.build.result == 'success' && 'success' || 'failure' }}
 
   cleanup:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && !github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, sprintrunner]
     steps:
       - uses: Linifadomra/ci/actions/cleanup@main

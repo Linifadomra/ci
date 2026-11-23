@@ -26,7 +26,7 @@ AUDIENCE = "builds.linifadomra.org"
 WORKFLOW_PREFIX = "Linifadomra/ci/.github/workflows/"
 ACCOUNT_ID = "52305f45b83875b07894fed89e2aae93"
 BUCKET_NAME = "linif-builds"
-CAP_USD = "3"
+CAP_USD = "10"
 
 [triggers]
 crons = ["0 * * * *", "30 4 * * *"]
